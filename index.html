@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Beat the Line</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --accent: #6ee7ff;
+    --text: #e8eef5;
+    --muted: #7c8794;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+  }
+  h1 { margin: 0; font-size: 28px; letter-spacing: 1px; }
+  h1 span { color: var(--accent); }
+
+  #landing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+    max-width: 440px;
+    padding: 20px;
+  }
+  #landing.hidden { display: none; }
+  #landing p.tagline { color: var(--muted); margin: 0; }
+  #landing ol {
+    text-align: left;
+    color: var(--text);
+    background: var(--panel);
+    padding: 20px 24px 20px 40px;
+    border-radius: 14px;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  #landing ol li span { color: var(--accent); font-weight: 700; }
+
+  #app.hidden { display: none; }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+  #hud {
+    display: flex;
+    gap: 24px;
+    background: var(--panel);
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    min-width: 440px;
+    justify-content: space-between;
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; }
+  .stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .stat .value { font-size: 20px; font-weight: 700; }
+
+  #judgeLabel { min-height: 22px; font-weight: 700; font-size: 16px; transition: opacity 0.15s; }
+
+  canvas {
+    background: var(--panel);
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    touch-action: none;
+  }
+
+  /* responsive layout */
+  #wrap { width: min(96vw, 720px); }
+  @media (max-width: 640px) {
+    h1 { font-size: 20px; }
+    #hud { min-width: auto; width: 100%; padding: 8px; gap: 8px; flex-wrap: wrap; }
+    #landing ol { padding-left: 20px; }
+    #lanes { width: 100%; }
+    .lanebtn { padding: 14px 0; font-size: 18px; border-radius: 12px; }
+    canvas { width: 100%; height: auto; }
+  }
+
+  #lanes {
+    display: flex;
+    gap: 8px;
+    width: 440px;
+  }
+  .lanebtn {
+    flex: 1;
+    padding: 12px 0;
+    text-align: center;
+    background: var(--panel);
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--muted);
+    user-select: none;
+    cursor: pointer;
+  }
+  .lanebtn.active { background: var(--accent); color: #0f1115; }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h2 { font-size: 32px; margin: 0; }
+  #overlay p { color: var(--muted); margin: 0; max-width: 360px; }
+
+  button {
+    background: var(--accent);
+    color: #0f1115;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+
+  #footer { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+
+<div id="landing">
+  <h1>Beat <span style="color:var(--accent)">the Line</span></h1>
+  <p class="tagline">Tap the lane the instant a note crosses the line. Nail the timing, build the streak.</p>
+  <ol>
+    <li>Notes fall down <span>4 lanes</span> toward the white hit line near the bottom.</li>
+    <li>Press <span>D, F, J, K</span> (or tap the lane on screen) the moment a note crosses the line.</li>
+    <li>Closer to the line = better judgment: <span>PERFECT</span>, <span>GOOD</span>, or <span>MISS</span>.</li>
+    <li>Consecutive hits build a <span>combo streak</span> that multiplies your score.</li>
+    <li>Round lasts <span>45 seconds</span>. Keep the streak alive for the highest score.</li>
+  </ol>
+  <button id="playBtn">Play</button>
+</div>
+
+<div id="app" class="hidden">
+  <h1>Beat <span>the Line</span></h1>
+  <div id="hud">
+    <div class="stat"><div class="label">Score</div><div class="value" id="scoreVal">0</div></div>
+    <div class="stat"><div class="label">Combo</div><div class="value" id="comboVal">0</div></div>
+    <div class="stat"><div class="label">Best Combo</div><div class="value" id="bestComboVal">0</div></div>
+    <div class="stat"><div class="label">High Score</div><div class="value" id="highScoreVal">0</div></div>
+    <div class="stat"><div class="label">Time</div><div class="value" id="timeVal">45</div></div>
+  </div>
+  <div id="judgeLabel">&nbsp;</div>
+  <canvas id="game" width="440" height="520"></canvas>
+  <div id="lanes">
+    <div class="lanebtn" data-lane="0">D</div>
+    <div class="lanebtn" data-lane="1">F</div>
+    <div class="lanebtn" data-lane="2">J</div>
+    <div class="lanebtn" data-lane="3">K</div>
+  </div>
+  <div id="footer">Keyboard: D F J K &nbsp;•&nbsp; or tap the lane buttons directly</div>
+</div>
+
+<div id="overlay" class="hidden">
+  <h2>Beat the Line</h2>
+  <button id="startBtn">Play Again</button>
+</div>
+
+</div>
+
+<script>
+const LANES = 4;
+const LANE_KEYS = ['d', 'f', 'j', 'k'];
+const LANE_COLORS = ['#ff4d6d', '#ffd166', '#06d6a0', '#4dabf7'];
+const CANVAS_W = 440, CANVAS_H = 520;
+const LANE_W = CANVAS_W / LANES;
+const HIT_Y = CANVAS_H - 70;
+const NOTE_R = 20;
+const FALL_SPEED = 260; // px per second
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// Responsive & high-DPI canvas scaling
+function resizeCanvas() {
+  const cssMax = Math.min(window.innerWidth - 40, 720);
+  const cssWidth = Math.max(320, Math.min(cssMax, CANVAS_W));
+  const cssHeight = Math.round(cssWidth * (CANVAS_H / CANVAS_W));
+  canvas.style.width = cssWidth + 'px';
+  canvas.style.height = cssHeight + 'px';
+  const scale = cssWidth / CANVAS_W;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(CANVAS_W * scale * dpr);
+  canvas.height = Math.round(CANVAS_H * scale * dpr);
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+}
+
+// allow tapping the canvas lanes
+canvas.addEventListener('pointerdown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const lane = Math.floor((x / rect.width) * LANES);
+  laneHit(Math.max(0, Math.min(LANES - 1, lane)));
+  const btn = document.querySelector(`.lanebtn[data-lane="${lane}"]`);
+  if (btn) { btn.classList.add('active'); setTimeout(()=>btn.classList.remove('active'), 120); }
+});
+
+window.addEventListener('resize', () => { resizeCanvas(); });
+window.addEventListener('orientationchange', () => { setTimeout(resizeCanvas, 180); });
+
+let notes = [];
+let score = 0, combo = 0, bestCombo = 0;
+let timeLeft = 45;
+let highScore = parseInt(localStorage.getItem('beatTheLineHigh') || '0', 10);
+let gameOver = true;
+let lastTime = null;
+let spawnTimer = 0;
+let spawnInterval = 0.7;
+let rafId = null;
+let timerId = null;
+let laneFlash = [0,0,0,0];
+
+document.getElementById('highScoreVal').textContent = highScore;
+
+function resetState() {
+  notes = [];
+  score = 0; combo = 0; bestCombo = 0;
+  timeLeft = 45;
+  spawnTimer = 0;
+  spawnInterval = 0.7;
+  laneFlash = [0,0,0,0];
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('comboVal').textContent = combo;
+  document.getElementById('bestComboVal').textContent = bestCombo;
+  document.getElementById('timeVal').textContent = Math.max(0, Math.ceil(timeLeft));
+}
+
+function showJudge(text, color) {
+  const el = document.getElementById('judgeLabel');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.opacity = 1;
+  clearTimeout(showJudge._t);
+  showJudge._t = setTimeout(() => { el.style.opacity = 0.25; }, 350);
+}
+
+function spawnNote() {
+  const lane = Math.floor(Math.random() * LANES);
+  notes.push({ lane, y: -NOTE_R, hit: false });
+}
+
+function laneHit(lane) {
+  if (gameOver) return;
+  laneFlash[lane] = 1;
+  // find closest unhit note in this lane
+  let best = null, bestDist = Infinity;
+  for (const n of notes) {
+    if (n.hit || n.lane !== lane) continue;
+    const dist = Math.abs(n.y - HIT_Y);
+    if (dist < bestDist) { bestDist = dist; best = n; }
+  }
+  if (!best || bestDist > 60) {
+    // miss - no note close enough
+    combo = 0;
+    updateHUD();
+    showJudge('MISS', '#ff4d6d');
+    return;
+  }
+  best.hit = true;
+  let judgment, points, color;
+  if (bestDist <= 15) { judgment = 'PERFECT'; points = 100; color = '#06d6a0'; }
+  else if (bestDist <= 35) { judgment = 'GOOD'; points = 60; color = '#ffd166'; }
+  else { judgment = 'OK'; points = 30; color = '#4dabf7'; }
+  combo++;
+  if (combo > bestCombo) bestCombo = combo;
+  const multiplier = 1 + Math.min(combo, 20) * 0.05;
+  score += Math.round(points * multiplier);
+  updateHUD();
+  showJudge(`${judgment} +${Math.round(points*multiplier)}`, color);
+}
+
+function handleKey(e) {
+  const idx = LANE_KEYS.indexOf(e.key.toLowerCase());
+  if (idx !== -1) laneHit(idx);
+}
+
+document.addEventListener('keydown', handleKey);
+
+document.querySelectorAll('.lanebtn').forEach(btn => {
+  const lane = parseInt(btn.dataset.lane, 10);
+  btn.addEventListener('pointerdown', () => laneHit(lane));
+});
+
+function loop(ts) {
+  if (gameOver) return;
+  if (lastTime === null) lastTime = ts;
+  const dt = (ts - lastTime) / 1000;
+  lastTime = ts;
+
+  spawnTimer += dt;
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnNote();
+    // gradually speed up spawn rate
+    spawnInterval = Math.max(0.35, spawnInterval - 0.004);
+  }
+
+  notes.forEach(n => { if (!n.hit) n.y += FALL_SPEED * dt; });
+
+  // missed notes past the line
+  notes.forEach(n => {
+    if (!n.hit && n.y - HIT_Y > 45) {
+      n.hit = true;
+      n.expired = true;
+      combo = 0;
+      updateHUD();
+    }
+  });
+
+  notes = notes.filter(n => n.y < CANVAS_H + 40 && !(n.hit && (n.expired || true) && n.y > HIT_Y + 60));
+  notes = notes.filter(n => n.y < CANVAS_H + 40);
+
+  for (let i = 0; i < LANES; i++) laneFlash[i] = Math.max(0, laneFlash[i] - dt * 4);
+
+  render();
+  rafId = requestAnimationFrame(loop);
+}
+
+function render() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // lane backgrounds
+  for (let i = 0; i < LANES; i++) {
+    const x = i * LANE_W;
+    ctx.fillStyle = `rgba(255,255,255,${0.02 + laneFlash[i]*0.08})`;
+    ctx.fillRect(x + 2, 0, LANE_W - 4, CANVAS_H);
+  }
+
+  // hit line
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, HIT_Y);
+  ctx.lineTo(CANVAS_W, HIT_Y);
+  ctx.stroke();
+
+  // notes
+  notes.forEach(n => {
+    if (n.hit) return;
+    const x = n.lane * LANE_W + LANE_W / 2;
+    ctx.beginPath();
+    ctx.arc(x, n.y, NOTE_R, 0, Math.PI * 2);
+    ctx.fillStyle = LANE_COLORS[n.lane];
+    ctx.shadowColor = LANE_COLORS[n.lane];
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function startGame() {
+  document.getElementById('overlay').classList.add('hidden');
+  resetState();
+  gameOver = false;
+  lastTime = null;
+  resizeCanvas();
+  render();
+  clearInterval(timerId);
+  timerId = setInterval(() => {
+    if (gameOver) return;
+    timeLeft -= 1;
+    updateHUD();
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  gameOver = true;
+  clearInterval(timerId);
+  cancelAnimationFrame(rafId);
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('beatTheLineHigh', String(highScore));
+    document.getElementById('highScoreVal').textContent = highScore;
+  }
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <h2>Time's Up!</h2>
+    <p>Score: <strong>${score}</strong> &nbsp;|&nbsp; Best Combo: <strong>${bestCombo}</strong></p>
+    <p>${score >= highScore ? "New high score!" : "High score: " + highScore}</p>
+    <button id="startBtn">Play Again</button>
+  `;
+  overlay.classList.remove('hidden');
+  document.getElementById('startBtn').addEventListener('click', startGame);
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  document.getElementById('landing').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  startGame();
+});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+
+// initial sizing + render
+resizeCanvas();
+render();
+</script>
+</body>
+</html>
